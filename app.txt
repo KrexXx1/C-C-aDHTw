@@ -1,0 +1,189 @@
+import RPi.GPIO as GPIO
+from datetime import datetime
+import time
+from threading import Thread
+import mh_z19
+import Adafruit_DHT as dht
+from flask import Flask, render_template, request #библиотека фласка
+
+app = Flask(__name__)
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+
+#переменные которые я использую
+motor = 26
+lamp1 = 20
+lamp2 = 21
+DHT = 23
+co2 = 12 
+
+lamp1Sos = False
+lamp2Sos = False
+motorSos = False
+
+h = 0
+t = 0
+co2Next = 0
+co2Max = 0
+co2Min = 0
+hMax = 0
+hMin = 0
+tMax = 0
+tMin = 0
+
+hours = 0
+minyts = 0
+timeNext = ""
+
+lampOn = "10:20"                                       
+lampOff = "19:46"                                      
+motorDay = 6#cколько раз за день включать насос       
+motorNight = 250#cколько раз за night включать насос     
+motorTime = 4#cколько минут работает мотор         
+motorDayCheck = motorDay #cчетчик сколько еще раз в день осталось поливать
+motorNightCheck = motorNight
+eror = ""
+
+#инцилизация пинов
+GPIO.setup(motor, GPIO.OUT)
+GPIO.output(motor, GPIO.HIGH)
+GPIO.setup(lamp1, GPIO.OUT)
+GPIO.output(lamp1, GPIO.HIGH)
+GPIO.setup(lamp2, GPIO.OUT)
+GPIO.output(lamp2, GPIO.HIGH)
+
+def Ferma(): #Лампы и насос
+    global motorNight,motorNightCheck
+    while True:
+        timecheck=hours*60+minyts
+        lampOn_in_min = int(lampOn[:2])*60+int(lampOn[3:])
+        lampOff_in_min = int(lampOff[:2])*60+int(lampOff[3:])
+        if (timecheck > lampOn_in_min) and (timecheck < lampOff_in_min):
+            lamp1Sos = True
+            GPIO.output(lamp1, GPIO.LOW)
+            lamp2Sos = True
+            GPIO.output(lamp2, GPIO.LOW)
+            
+            timeStepDay = int(abs(lampOff_in_min-lampOn_in_min)/motorDay) # in minyts
+            motorDayCheck = 0
+            if (timecheck >= lampOn_in_min + timeStepDay*motorDayCheck) and (motorDayCheck < motorDay):
+                motorSos = True
+                print('day pumping')
+                GPIO.output(motor, GPIO.LOW)
+                time.sleep(motorTime*1)#потому что в секундах надо
+                motorSos = False
+                #print(motorDayCheck)
+                GPIO.output(motor, GPIO.HIGH)
+                motorDayCheck = motorDayCheck + 1
+            
+        #elif (timecheck < lampOn_in_min) or (timecheck > lampOff_in_min):
+        else:
+            lamp1Sos = False
+            GPIO.output(lamp1, GPIO.HIGH)
+            lamp2Sos = False
+            GPIO.output(lamp2, GPIO.HIGH)
+            
+            timeStepNight = int(abs(lampOff_in_min-lampOn_in_min)/motorNight) # in minyts
+            print(str(timeStepNight) + '  d  ' + str(motorNightCheck))
+            motorNightCheck = 0
+            if ((timecheck < lampOn_in_min + timeStepNight*motorNightCheck) or
+                (timecheck > lampOff_in_min + timeStepNight*motorNightCheck)) and (motorNightCheck < motorNight):
+                print('night pumping')
+                print('timecheck  ' + str(timecheck))
+                print('lampOn_in_min ' + str(timecheck))
+                print('timeStepNight   '+ str(timeStepNight))
+                motorSos = True
+                GPIO.output(motor, GPIO.LOW)
+                time.sleep(motorTime*1)#потому что в секундах надо
+                motorSos = False
+                GPIO.output(motor, GPIO.HIGH)
+                motorNightCheck = motorNightCheck + 1  
+
+
+def datchiky():
+    global h,t,hMax,hMin,tMax,tMin,timeNext,eror,co2Next,co2Max,co2Min,hours,minyts
+    while True:
+        eror = ""
+        d = datetime.today()
+        hours = int(d.strftime("%H"))
+        minyts = int(d.strftime("%M"))
+        timeNext = d.strftime("%H:%M")
+        #print(int(lampOn[:2])*60+int(lampOn[3:]))
+        co2Next = mh_z19.read_from_pwm(gpio=18, range=2000)
+        #print(mh_z19.read_from_pwm(gpio=12, range=2000))
+        h,t = dht.read_retry(dht.DHT22, DHT)
+        if h > hMax:
+            eror= eror + "влажность привышина"
+        elif h < hMin:
+             eror=eror+"влажность занижена"
+        elif t > tMax:
+            eror=eror+"температура привышина"
+        elif t < tMin:
+            eror=eror+"температура занижена"
+        elif co2Next > co2Max:
+            eror=eror+"co2 привышина"
+        elif co2Next < co2Min:
+            eror=eror+"co2 занижена"
+        #print('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(t,h))
+        time.sleep(10) 
+    
+
+ 
+@app.route("/", methods=['GET', 'POST'])
+def main():
+    global motorSos,lamp1Sos,lamp2Sos,h,t,hMax,hMin,tMax,tMin,timeNext,eror,co2Next,co2Max,co2Min
+    if request.method == 'POST':
+        if request.form.get('lamp1On'):
+            lamp1Sos = True
+            GPIO.output(lamp1, GPIO.LOW)
+        if request.form.get('lamp1Off'):
+            lamp1Sos = False
+            GPIO.output(lamp1, GPIO.HIGH)
+        if request.form.get('lamp2On'):
+            lamp2Sos = True
+            GPIO.output(lamp2, GPIO.LOW)
+        if request.form.get('lamp2Off'):
+            lamp2Sos = False
+            GPIO.output(lamp2, GPIO.HIGH)
+        if request.form.get('motorOn'):
+            motorSos = True
+            GPIO.output(motor, GPIO.LOW)
+        if request.form.get('motorOff'):
+            motorSos = False
+            GPIO.output(motor, GPIO.HIGH)
+        
+    templateData = {
+      'lamp1' : lamp1Sos,
+      'lamp2' : lamp2Sos,
+      'motor' : motorSos,
+      'timeNext':timeNext,
+      'co2':co2Next,
+      'h':h,
+      't':t,
+      'tMin':tMin,
+      'tMax':tMax,
+      'hMin':hMin,
+      'hMax':hMax,
+      'co2Max':co2Max,
+      'co2Min':co2Min
+
+    }
+    return render_template('index.html', **templateData)
+
+def startGo():
+    print("Go")
+    app.run(host='172.10.40.114', port=5000)
+
+if __name__ == "__main__":
+    th = Thread(target=startGo)
+    th.start()
+    th1 = Thread(target=datchiky)
+    th1.start()
+    th2 = Thread(target=Ferma)
+    th2.start()
+
+
+
+
+
