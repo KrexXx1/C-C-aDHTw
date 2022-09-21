@@ -1,0 +1,84 @@
+#Biblioteki
+import time
+import mh_z19
+import RPi.GPIO as GPIO
+import Adafruit_DHT as dht
+from threading import Thread
+
+#peremennie
+DHT = 23 #dht pin
+Lamp1 = 26 #lamp1 pin
+
+Lamp2 = 20 #lamp2 pin
+Nasos = 21 #nasos pin
+LampOn = 5 #zadergka lampON
+LampOff = 10 #zadergka lampOFF
+NasosOn = 3 #zadergka nasosON
+NasosOff = 10 #zadergka nasosOFF
+DHTOff = 15 #zadergka DHToff
+Voda = 24 #voda pin
+Co2sleep = 10 #zadergka Co2
+Co2 = 12 #Co2 pin
+voda0 = False
+voda1 = False
+Vodanet = 5 #zadergka vodi1
+Vodaest = 5 #zadergka vodi2
+
+GPIO.setwarnings(False) #ybiraem predypregdenie
+GPIO.setmode(GPIO.BCM) #metod nymeracii pin
+GPIO.setup(Lamp1, GPIO.OUT) #pin26 vixod
+GPIO.setup(Lamp2, GPIO.OUT) #pin20 vixod
+GPIO.setup(Voda, GPIO.IN) #pin24 vixod
+GPIO.setup(Nasos, GPIO.OUT) #pin21 vixod
+GPIO.output(Lamp1, True) #High napragenie pin26
+GPIO.output(Lamp2, True) #High napragenie pin20
+GPIO.output(Nasos, True) #High napragenie pin21
+
+def Lamp(): #cozdaem funkciy Lamp
+    while True:
+        GPIO.output(Lamp1, False) #Low napragenie pin26
+        GPIO.output(Lamp2, False) #Low napragenie pin20
+        print("Lamp_on")
+        time.sleep(LampOn)
+        GPIO.output(Lamp1, True) #High napragenie pin26
+        GPIO.output(Lamp2, True) #High napragenie pin20
+        print("Lamp_off")
+        time.sleep(LampOff)  
+
+def Sosalka(): #cozdaem funkciy Nasos 
+    while True:
+        if (voda0 == True):
+            print("net vodki")
+            time.sleep(Vodanet)
+        else:
+            print("vodka ok")
+            time.sleep(Vodaest)
+            
+        t0 = time.time()
+        while(voda1 == False and time.time() - t0 <= NasosOn):
+            print("Nasos ON")
+            GPIO.output(Nasos, False)
+            time.sleep(NasosOn)
+        
+        GPIO.output(Nasos, True)
+        print("Nasos OFF")
+        time.sleep(NasosOff)
+    
+def Co2(): #cozdaem funkciy Co2
+    while True:
+        print(mh_z19.read_from_pwm(gpio=12, range=2000))
+        time.sleep(Co2sleep)
+        
+def Temp(): #cozdaem funkciy Temeprature
+    while True:
+        h,t = dht.read_retry(dht.DHT22, DHT)
+        print ("Temp={0:0.1f}*C Humidity={1:0.1f}%".format(t,h))
+        time.sleep(DHTOff)
+    
+if __name__ == "__main__": #mnogopotochnoct
+    Thread(target = Lamp).start()
+    Thread(target = Temp).start()
+    Thread(target = Sosalka).start()
+    Thread(target = Co2).start()
+
+

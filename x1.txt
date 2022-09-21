@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Ferma Alex</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' media='screen' href='static/css/style.css'>
+    <meta http-equiv="Refresh" content="5" />
+</head>
+<style type="text/css">
+* {
+  box-sizing: border-box;
+}
+
+.col-3 {
+  width: 33.333%; 
+  border:1px solid #333;
+  float: left;
+}
+
+.row {
+    overflow: hidden;
+}
+</style>
+<body align ="center">
+<div class = "row">
+    <div class="col-3">
+    <h1>Точное время и датчики</h1>
+    <p>Time = {{timeNext}}</p>
+    <p>co2 Min = {{co2Min}}</p>
+    <p>co2 = {{co2}}</p>
+    <p>co2 Max = {{co2Max}}</p>
+    <p>high Min = {{hMin}}</p>
+    <p>high = {{h}}</p>
+    <p>high Max = {{hMax}}</p>
+    <p>temp Min = {{tMin}}</p>
+    <p>temp = {{t}}</p>
+    <p>temp Max = {{tMax}}</p>
+    <p>Ошибки: {{eror}} </p>
+    </div>
+    <div class="col-3">
+    <form method="POST">
+    <h1>Управление </h1>
+    <h2>Лампа 1:</h2>
+    <p>Состояние лампы 1: {{lamp1}}</p>
+    <p><input type="submit" name="lamp1On" onchange="this.form.submit()" value="включить насос">
+        <input type="submit" name="lamp1Off" onchange="this.form.submit()" value="выключить насос">
+    </p>
+    <h2>Лампа 2:</h2>
+    <p>Состояние лампы 1: {{lamp2}}</p>
+    <p><input type="submit" name="lamp2On" onchange="this.form.submit()" value="включить насос">
+        <input type="submit" name="lamp2Off" onchange="this.form.submit()" value="выключить насос">
+    </p>
+    <h2>Насос:</h2>
+    <p>Состояние насоса: {{motor}}</p>
+    <p><input type="submit" name="motorOn" onchange="this.form.submit()" value="включить насос">
+        <input type="submit" name="motorOff" onchange="this.form.submit()" value="выключить насос">
+    </p>
+</form>
+</div>
+<div class="col-3">
+    <h1>Изменение ручного режима</h1>
+    <form method="POST">
+        <p>Во сколько лампы включится<input type="time" name="LampON"></p>
+        <p>Во сколько лампы выключится<input type="time" name="LampOff"></p>
+        <p>Сколько мотор поливается в день <input type="number" name="motorDay"></p>
+        <p>Сколько мотор поливает ночью<input type="number" name="motorNigh"></p>
+        <p>Влажность максемальна<input type="number" name="hMax"></p>
+        <p>Влажность минимальная<input type="number" name="hMin"></p>
+        <p>Температура максемальна<input type="number" name="tMax"></p>
+        <p>Температура минимальная<input type="number" name="tMin"></p>
+        <p>Co2 максемальна<input type="number" name="co2Max"></p>
+        <p>Co2 минимальная<input type="number" name="co2Min"></p>
+        <input type="submit" value="Отправить" onchange="this.form.submit()">
+    </form>
+</div>
+</div>
+</body>
+</html>

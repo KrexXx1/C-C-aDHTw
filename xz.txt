@@ -1,0 +1,73 @@
+import time
+import mh_z19
+import RPi.GPIO as GPIO
+import Adafruit_DHT as dht
+from threading import Thread
+import datetime
+
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(20, GPIO.OUT)
+GPIO.setup(21, GPIO.OUT)
+GPIO.setup(26, GPIO.OUT)
+GPIO.output(20, True)
+GPIO.output(21, True)
+GPIO.output(26, True)
+
+DHT = 23
+voda0 = False
+voda1 = False
+
+def Temp():
+    while True:
+        h,t = dht.read_retry(dht.DHT22, DHT)
+        print("Temp={0:0.1f}*C Humidity={1:0.1f}%".format(t,h))
+        time.sleep(15)
+    
+def Lamp():
+    while True:
+        GPIO.output(20, False)
+        GPIO.output(26, False)
+        print("Lamp_ON")
+        time.sleep(5)
+        GPIO.output(20, True)
+        GPIO.output(26, True)
+        print("Lamp_OFF")
+        time.sleep(10)
+        
+def Co2():
+    while True:
+        print(mh_z19.read_from_pwm(gpio=12, range=2000))
+        time.sleep(15)
+        
+def Sosalka():
+    while True:
+        if (voda0 == True):
+            print("vodka_neok")
+            time.sleep(5)
+        else:
+            print("vodka_ok")
+            time.sleep(5)
+        t0 = time.time()
+        while(voda1 == False and time.time() - t0 <= 3):
+            print("Nasos ON")
+            GPIO.output(21, False)
+            time.sleep(3)
+        
+        GPIO.output(21, True)
+        print("Nasos OFF")
+        time.sleep(10)
+        
+def Time():
+    date = datetime.datetime.today()
+    print(date.strftime("%Y/%b/%a/%X"))
+    time.sleep(10)
+    
+if __name__ == "__main__":
+    Thread(target = Lamp).start()
+    Thread(target = Co2).start()
+    Thread(target = Sosalka).start()
+    Thread(target = Temp).start()
+    Thread(target = Time).start()
+

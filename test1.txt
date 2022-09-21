@@ -1,0 +1,169 @@
+#biblioteki
+import time
+from time import sleep
+import datetime
+import RPi.GPIO as GPIO
+import Adafruit_DHT as dht
+from threading import Thread
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+GPIO.setwarnings(False)#ybiraem predypregdenie 
+GPIO.setmode(GPIO.BCM)#yctanavlivaem cpocob nymeracii
+GPIO.setup(26, GPIO.OUT)#pin26vixod
+GPIO.setup(20, GPIO.OUT)#pin20vixod
+GPIO.setup(21, GPIO.OUT)#pin21vixod
+GPIO.output(20, True)#vicokoenapragenie
+GPIO.output(26, True)#vicokoenapragenie
+GPIO.output(21, True)#vicokoenapragenie
+DHT = 23
+date = datetime.datetime.today()
+nasos = ""
+checkLamp = ""
+time = ""
+
+html='''<meta http-equiv="Refresh" content="5" /><html>
+              <style>html{font-family: Helvetica; display:inline-block; margin: 0px auto; text-align: center;}
+                 .button_nasos {display: inline-block; background-color: Red; border: none; border-radius: 4px; color: Black; padding: 16px 40px; text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}
+                 .button_led {display: inline-block; background-color: Black; border: none; border-radius: 4px; color: Red; padding: 16px 40px; text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}
+              </style>
+              <script type="text/javascript" charset="utf-8">
+                    function httpGetAsync(method, callback) {
+                        var xmlHttp = new XMLHttpRequest();
+                        xmlHttp.onreadystatechange = function() { 
+                            if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+                                callback(xmlHttp.responseText);
+                        }
+                        xmlHttp.open("GET", window.location.href + method, true);
+                        xmlHttp.send(null);
+                    }
+    
+                    function ledOn() {
+                        console.log("Led ON...");
+                        httpGetAsync("led/on", function(){ console.log("Done"); });
+                    }
+    
+                    function ledOff() {
+                        console.log("Led OFF...");
+                        httpGetAsync("led/off", function(){ console.log("Done"); });
+                    }
+                    function nasosOn() {
+                        console.log("nasos ON...");
+                        httpGetAsync("nasos/on", function(){ console.log("Done"); });
+                    }
+    
+                    function nasosOff() {
+                        console.log("nasos OFF...");
+                        httpGetAsync("nasos/off", function(){ console.log("Done"); });
+                    }                            
+              </script>
+              <body>
+                 <h2>Remote server!</h2>
+                 <p><button class="button button_led" onclick="ledOn();">Led ON</button></p>
+                 <p><button class="button button_led" onclick="ledOff();">Led OFF</button></p>
+                 <p><button class="button button_nasos" onclick="nasosOn();">Nasos ON</button></p>
+                 <p><button class="button button_nasos" onclick="nasosOff();">Nasos OFF</button></p>
+              '''
+
+
+def http():
+    port = 8000
+    print("Starting server at port %d" % port)
+    server_thread(port)
+
+def Time():
+    while True:
+        time = (date.strftime("%X"))
+        global html
+        html += time
+        print (time)
+        sleep(10)
+    
+def Lamp():#cozdaem funkciy Lamp
+    while True:
+        GPIO.output(20, False)#nizkoenapragenie
+        GPIO.output(26, False)#nizkoenapragenie
+        checkLamp = "Lamp_On"
+        global html
+        html += checkLamp
+        print(checkLamp)
+        sleep(5)#zadergka10cek
+        GPIO.output(20, True)#vicokoenapragenie
+        GPIO.output(26, True)#vicokoenapragenie
+        checkLamp = "Lamp_Off"
+        print(checkLamp)
+        sleep(10)#zadergka10cek
+
+def Sosalka():#cozdaem funkciy Nasos 
+    while True:
+        GPIO.output(21, False)#nizkoenapragenie
+        nasos = "Nasos_On"
+        global html
+        html += nasos
+        print(nasos)
+        sleep(3)#zadergka5cek
+        GPIO.output(21, True)#vicokoenapragenie
+        nasos = "Nasos_Off"
+        print(nasos)
+        sleep(10)#zadergka10cek
+        
+def Temp():
+    while True:
+        h,t = dht.read_retry(dht.DHT22, DHT)
+        print('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(t,h))
+        sleep(10) 
+
+class ServerHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        print("GET request, path:", self.path)
+        if self.path == "/":
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write(html.encode('utf-8'))
+        elif self.path == "/led/on":
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            GPIO.output(20, False)
+            GPIO.output(26, False)
+            self.wfile.write(b"OK")
+        elif self.path == "/led/off":
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            GPIO.output(20, True)
+            GPIO.output(26, True)
+            self.wfile.write(b"OK")
+        elif self.path == "/nasos/on":
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            GPIO.output(21, False)
+            self.wfile.write(b"OK")
+        elif self.path == "/nasos/off":
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            GPIO.output(21, True)
+            self.wfile.write(b"OK")
+        else:
+            self.send_error(404, "Page Not Found {}".format(self.path))
+
+def server_thread(port):
+    server_address = ('', port)
+    httpd = HTTPServer(server_address, ServerHandler)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    httpd.server_close()
+    
+    
+if __name__ == "__main__":
+    Thread(target = Lamp).start() #mnogopotochnoct
+    Thread(target = Sosalka).start()
+    Thread(target = http).start()
+    Thread(target = Temp).start()
+    Thread(target = Time).start()
+
+ 
